@@ -6,18 +6,21 @@ const orderTracker = new Map();
 
 async function handlePaymentWorker(task) {
   const { orderId, amount, customerName, forceFail } = task;
-  eventBus.log('RABBITMQ', `[Payment Worker] Processing charge of $${amount} for Order #${orderId}`);
+  eventBus.log('RABBITMQ', `[Payment Worker] Validating payment of ₹${amount} for Order #${orderId}...`);
 
-  // Test failure condition
-  if (forceFail || customerName === 'FAIL_TEST' || amount > 9000) {
+  // Small delay so the user can visually see the worker in action
+  await new Promise(res => setTimeout(res, 500));
+
+  // Test failure condition ONLY when explicitly triggered
+  if (forceFail || customerName === 'FAIL_TEST') {
     eventBus.log('RABBITMQ', `[Payment Worker] REJECTED payment for Order #${orderId} (Simulated decline / limit reached). NACK sent -> DLQ!`);
     await updateOrderSubtask(orderId, 'payment', 'FAILED', 'Payment declined');
     return false; // Triggers NACK -> DLQ
   }
 
   // Success
-  eventBus.log('RABBITMQ', `[Payment Worker] Payment of $${amount} APPROVED for Order #${orderId}. ACK sent.`);
-  await updateOrderSubtask(orderId, 'payment', 'CONFIRMED', `Charged $${amount}`);
+  eventBus.log('RABBITMQ', `[Payment Worker] Payment of ₹${amount} APPROVED for Order #${orderId}. ACK sent.`);
+  await updateOrderSubtask(orderId, 'payment', 'CONFIRMED', `Charged ₹${amount}`);
   return true; // Triggers ACK
 }
 
@@ -25,6 +28,8 @@ async function handleInventoryWorker(task) {
   const { orderId, item, quantity } = task;
   eventBus.log('RABBITMQ', `[Inventory Worker] Reserving item '${item}' (Qty: ${quantity || 1}) for Order #${orderId}`);
   
+  await new Promise(res => setTimeout(res, 800));
+
   // Success
   eventBus.log('RABBITMQ', `[Inventory Worker] Stock locked for '${item}' in warehouse. ACK sent.`);
   await updateOrderSubtask(orderId, 'inventory', 'RESERVED', `Warehouse allocated ${item}`);
@@ -35,6 +40,8 @@ async function handleNotificationWorker(task) {
   const { orderId, customerName, email } = task;
   eventBus.log('RABBITMQ', `[Notification Worker] Dispatching receipt email to ${email || customerName}`);
   
+  await new Promise(res => setTimeout(res, 1100));
+
   // Success
   eventBus.log('RABBITMQ', `[Notification Worker] Email sent. ACK sent.`);
   await updateOrderSubtask(orderId, 'notification', 'SENT', `Notification dispatched to ${email || customerName}`);

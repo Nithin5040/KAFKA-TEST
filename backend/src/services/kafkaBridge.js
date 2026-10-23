@@ -25,6 +25,23 @@ async function processKafkaMessage(kafkaRecord) {
     }
   });
 
+  // Broadcast immediate state to frontend so stepper lights up Kafka node
+  eventBus.broadcast('ORDER_UPDATED', {
+    orderId: order.id,
+    status: 'KAFKA_INGESTED',
+    tasks: { payment: 'QUEUED', inventory: 'QUEUED', notification: 'QUEUED' },
+    order: {
+      id: order.id,
+      customer_name: order.customerName,
+      item: order.item,
+      amount: order.amount,
+      status: 'KAFKA_INGESTED',
+      kafka_partition: partition,
+      kafka_offset: offset,
+      rabbit_tasks: { payment: 'QUEUED', inventory: 'QUEUED', notification: 'QUEUED' }
+    }
+  });
+
   // Step 2: Route specialized task messages to RabbitMQ
   // Task 1: Payment processing
   await publishToRabbit(
