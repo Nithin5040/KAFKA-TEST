@@ -8,10 +8,11 @@ import DbConfigModal from './components/DbConfigModal';
 import LearningModal from './components/LearningModal';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState('pipeline'); // 'pipeline' | 'orders' | 'logs'
   const [status, setStatus] = useState({
     kafka: { mode: 'SIMULATOR', isConnected: false },
     rabbitmq: { mode: 'SIMULATOR', isConnected: false },
-    database: { isConnected: false, provider: 'In-Memory (Awaiting Supabase/Neon URL)' }
+    database: { isConnected: false, provider: 'Supabase Cloud PostgreSQL' }
   });
 
   const [stats, setStats] = useState({
@@ -32,6 +33,7 @@ export default function App() {
 
   const [orders, setOrders] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [latestOrder, setLatestOrder] = useState(null);
   const [latestEvent, setLatestEvent] = useState(null);
 
   const [isDbModalOpen, setIsDbModalOpen] = useState(false);
@@ -51,7 +53,10 @@ export default function App() {
         if (statusRes.stats) setStats(statusRes.stats);
         if (statusRes.rabbitmq?.metrics) setRabbitMetrics(statusRes.rabbitmq.metrics);
       }
-      if (Array.isArray(ordersRes)) setOrders(ordersRes);
+      if (Array.isArray(ordersRes) && ordersRes.length > 0) {
+        setOrders(ordersRes);
+        if (!latestOrder) setLatestOrder(ordersRes[0]);
+      }
       if (Array.isArray(logsRes)) setLogs(logsRes);
     } catch (err) {
       console.error('Error fetching initial data:', err);
@@ -69,10 +74,6 @@ export default function App() {
 
     const connectWs = () => {
       ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        console.log('Connected to pipeline WebSocket telemetry stream');
-      };
 
       ws.onmessage = (event) => {
         try {
@@ -92,14 +93,22 @@ export default function App() {
           } else if (msg.type === 'ORDER_UPDATED') {
             setOrders(prev => {
               const idx = prev.findIndex(o => o.id === msg.data.orderId);
+              const updatedItem = {
+                id: msg.data.orderId,
+                status: msg.data.status,
+                rabbit_tasks: msg.data.tasks,
+                ...(msg.data.order || {})
+              };
+
+              setLatestOrder(updatedItem);
+
               if (idx >= 0) {
                 const next = [...prev];
-                next[idx] = { ...next[idx], status: msg.data.status, rabbit_tasks: msg.data.tasks, ...(msg.data.order || {}) };
+                next[idx] = { ...next[idx], ...updatedItem };
                 return next;
-              } else if (msg.data.order) {
-                return [msg.data.order, ...prev];
+              } else {
+                return [updatedItem, ...prev];
               }
-              return prev;
             });
           } else if (msg.type === 'DB_STATUS') {
             setStatus(prev => ({
@@ -112,7 +121,7 @@ export default function App() {
             }));
           }
         } catch (err) {
-          console.error('WebSocket message parsing error:', err);
+          console.error('WebSocket message parse error:', err);
         }
       };
 
@@ -126,9 +135,7 @@ export default function App() {
     };
 
     connectWs();
-
-    // Polling fallback every 6 seconds
-    const interval = setInterval(fetchData, 6000);
+    const interval = setInterval(fetchData, 8000);
 
     return () => {
       clearInterval(interval);
@@ -138,59 +145,153 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px' }}>
+    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px 24px' }}>
       
-      {/* Top Header */}
+      {/* Clean Navbar & Tabs */}
       <Header
         status={status}
         onOpenDbModal={() => setIsDbModalOpen(true)}
         onOpenGuideModal={() => setIsGuideModalOpen(true)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
-      {/* Main Architecture Visualizer */}
-      <PipelineVisualizer
-        stats={stats}
-        rabbitMetrics={rabbitMetrics}
-        latestEvent={latestEvent}
-      />
-
-      {/* Two Column Section: Dispatcher & DB Table */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(340px, 420px) 1fr',
-        gap: '24px',
-        alignItems: 'stretch'
-      }}>
-        {/* Left: Dispatcher & Simulator */}
+      {/* TAB 1: Main Interactive Pipeline & Dispatcher */}
+      {activeTab === 'pipeline' && (
         <div>
-          <OrderDispatcher
-            onOrderCreated={(data) => {
-              if (data?.order) {
-                setOrders(prev => [data.order, ...prev]);
-              }
-            }}
-            onBatchDispatched={() => {
-              fetchData();
-            }}
+          {/* Top: 4-Step Diagram & Live Order Journey */}
+          <PipelineVisualizer
+            stats={stats}
+            rabbitMetrics={rabbitMetrics}
+            latestOrder={latestOrder}
+            latestEvent={latestEvent}
           />
+
+          {/* Bottom: 2 Clear Columns */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(340px, 420px) 1fr',
+            gap: '20px',
+            alignItems: 'start'
+          }}>
+            {/* Left Column: 1-Click Scenarios & Custom Dispatcher */}
+            <div>
+              <OrderDispatcher
+                onOrderCreated={(data) => {
+                  if (data?.order) {
+                    setLatestOrder(data.order);
+                    setOrders(prev => [data.order, ...prev]);
+                  }
+                }}
+                onBatchDispatched={() => {
+                  fetchData();
+                }}
+              />
+            </div>
+
+            {/* Right Column: Live Recent Orders Feed */}
+            <div className="card-clean" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <div>
+                  <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff' }}>
+                    Recent Orders in Supabase
+                  </h3>
+                  <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                    Click any order to view its live journey in the stepper above
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('orders')}
+                  className="btn-ghost"
+                  style={{ fontSize: '0.75rem', padding: '5px 10px' }}
+                >
+                  View Full Ledger →
+                </button>
+              </div>
+
+              {/* Order Cards List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {orders.slice(0, 5).map((ord) => {
+                  const isSelected = latestOrder?.id === ord.id;
+                  const isCompleted = ord.status === 'COMPLETED';
+                  const isFailed = ord.status === 'FAILED_PROCESSING';
+                  const tasks = ord.rabbit_tasks || {};
+
+                  return (
+                    <div
+                      key={ord.id}
+                      onClick={() => setLatestOrder(ord)}
+                      style={{
+                        background: isSelected ? 'rgba(139, 92, 246, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                        border: `1px solid ${isSelected ? 'rgba(139, 92, 246, 0.4)' : 'var(--border-color)'}`,
+                        borderRadius: '10px',
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className="mono" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ffffff' }}>
+                            {ord.id}
+                          </span>
+                          <span className="badge badge-kafka" style={{ fontSize: '0.65rem' }}>
+                            P#{ord.kafka_partition ?? 0}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          {ord.customer_name} • <span style={{ color: '#38bdf8' }}>${parseFloat(ord.amount || 0).toFixed(2)}</span> ({ord.item})
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        {isCompleted && <span className="badge badge-success">✓ Completed</span>}
+                        {isFailed && <span className="badge badge-failed">✗ DLQ Routed</span>}
+                        {!isCompleted && !isFailed && <span className="badge badge-pending">⋯ In Flight</span>}
+                        <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          Pay: {tasks.payment || '..'} • Inv: {tasks.inventory || '..'} • Email: {tasks.notification || '..'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {orders.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    No orders yet. Click "Standard Order ($2,499)" on the left to see the magic happen!
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
         </div>
+      )}
 
-        {/* Right: Orders Ledger from Cloud DB */}
-        <div>
-          <OrdersTable
-            orders={orders}
-            onRefresh={fetchData}
-          />
-        </div>
-      </div>
+      {/* TAB 2: Supabase Cloud Database Ledger */}
+      {activeTab === 'orders' && (
+        <OrdersTable
+          orders={orders}
+          onRefresh={fetchData}
+          onSelectOrder={(ord) => {
+            setLatestOrder(ord);
+            setActiveTab('pipeline');
+          }}
+        />
+      )}
 
-      {/* Real-time Telemetry Console */}
-      <LiveConsole
-        logs={logs}
-        onClear={() => setLogs([])}
-      />
+      {/* TAB 3: Real-Time Telemetry Logs Stream */}
+      {activeTab === 'logs' && (
+        <LiveConsole
+          logs={logs}
+          onClear={() => setLogs([])}
+        />
+      )}
 
-      {/* Cloud DB Connection Modal */}
+      {/* Cloud DB Connection Settings Modal */}
       <DbConfigModal
         isOpen={isDbModalOpen}
         onClose={() => setIsDbModalOpen(false)}
@@ -201,7 +302,7 @@ export default function App() {
         }}
       />
 
-      {/* Architecture Learning Guide Modal */}
+      {/* Educational Architecture Guide Modal */}
       <LearningModal
         isOpen={isGuideModalOpen}
         onClose={() => setIsGuideModalOpen(false)}

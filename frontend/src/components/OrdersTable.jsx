@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Database, Eye, CheckCircle2, Clock, XCircle, Search, RefreshCw } from 'lucide-react';
+import { Database, Eye, CheckCircle2, Clock, XCircle, Search, RefreshCw, ExternalLink } from 'lucide-react';
 
-export default function OrdersTable({ orders, onRefresh }) {
+export default function OrdersTable({ orders, onRefresh, onSelectOrder }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [filterText, setFilterText] = useState('');
 
@@ -23,75 +23,64 @@ export default function OrdersTable({ orders, onRefresh }) {
     }
   };
 
-  const getTaskStatusDot = (taskStatus) => {
-    if (taskStatus === 'CONFIRMED' || taskStatus === 'RESERVED' || taskStatus === 'SENT') {
-      return <span style={{ color: '#10b981', fontWeight: 600 }}>✓ ACK</span>;
-    }
-    if (taskStatus === 'FAILED') {
-      return <span style={{ color: '#ef4444', fontWeight: 600 }}>✗ DLQ</span>;
-    }
-    return <span style={{ color: '#f59e0b' }}>⋯ Queued</span>;
-  };
-
   return (
-    <div className="glass-panel" style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="card-clean" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
       
-      {/* Header & Controls */}
+      {/* Table Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Database size={18} color="#10b981" /> Cloud Database Orders Ledger
+          <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Database size={18} color="#34d399" /> Supabase Cloud Database Records
           </h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Real-time state records persisted in PostgreSQL
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+            Live table <code className="mono" style={{ color: '#34d399' }}>orders</code> in your PostgreSQL cloud database
           </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Search */}
+          {/* Search bar */}
           <div style={{ position: 'relative' }}>
             <input
               type="text"
               placeholder="Search orders..."
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
-              className="input-field"
-              style={{ padding: '6px 12px 6px 30px', fontSize: '0.78rem', width: '160px' }}
+              className="clean-input"
+              style={{ padding: '6px 12px 6px 28px', fontSize: '0.75rem', width: '150px' }}
             />
-            <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+            <Search size={13} color="var(--text-muted)" style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)' }} />
           </div>
 
           <button
-            id="btn-refresh-orders"
             onClick={onRefresh}
-            className="btn-secondary"
+            className="btn-ghost"
             style={{ padding: '6px 10px', fontSize: '0.75rem' }}
-            title="Refresh Orders"
+            title="Refresh from Cloud Database"
           >
-            <RefreshCw size={13} />
+            <RefreshCw size={13} /> Refresh
           </button>
         </div>
       </div>
 
-      {/* Table Container */}
-      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+      {/* Clean Table View */}
+      <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.78rem' }}>
           <thead>
             <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
               <th style={{ padding: '10px 14px' }}>Order ID</th>
               <th style={{ padding: '10px 14px' }}>Customer & Item</th>
               <th style={{ padding: '10px 14px' }}>Amount</th>
-              <th style={{ padding: '10px 14px' }}>Kafka Metadata</th>
+              <th style={{ padding: '10px 14px' }}>Kafka Partition</th>
               <th style={{ padding: '10px 14px' }}>RabbitMQ Tasks</th>
               <th style={{ padding: '10px 14px' }}>Status</th>
-              <th style={{ padding: '10px 14px', textAlign: 'center' }}>Inspect</th>
+              <th style={{ padding: '10px 14px', textAlign: 'center' }}>Details</th>
             </tr>
           </thead>
           <tbody>
             {filteredOrders.length === 0 ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                  No orders yet. Dispatch an order from the left panel to trigger the pipeline!
+                  No orders found. Click a 1-click test button on the left to dispatch an order!
                 </td>
               </tr>
             ) : (
@@ -102,31 +91,59 @@ export default function OrdersTable({ orders, onRefresh }) {
                     key={ord.id}
                     style={{
                       borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                      transition: 'background 0.2s'
+                      transition: 'background 0.15s',
+                      cursor: 'pointer'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'}
+                    onClick={() => {
+                      if (onSelectOrder) onSelectOrder(ord);
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
                     <td style={{ padding: '10px 14px' }} className="mono">
-                      <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{ord.id}</span>
+                      <span style={{ color: '#ffffff', fontWeight: 600 }}>{ord.id}</span>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{ord.customer_name}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ord.item}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ord.item}</div>
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#38bdf8' }}>
                       ${parseFloat(ord.amount || 0).toFixed(2)}
                     </td>
                     <td style={{ padding: '10px 14px' }} className="mono">
-                      <div style={{ fontSize: '0.7rem', color: '#c084fc' }}>
-                        P: {ord.kafka_partition ?? 0} • Off: {ord.kafka_offset ?? 0}
-                      </div>
+                      <span className="badge badge-kafka">
+                        P#{ord.kafka_partition ?? 0} (Off {ord.kafka_offset ?? 0})
+                      </span>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.68rem' }} className="mono">
-                        <div>Pay: {getTaskStatusDot(tasks.payment)}</div>
-                        <div>Inv: {getTaskStatusDot(tasks.inventory)}</div>
-                        <div>Notif: {getTaskStatusDot(tasks.notification)}</div>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          fontSize: '0.65rem',
+                          background: tasks.payment === 'FAILED' ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
+                          color: tasks.payment === 'FAILED' ? '#f87171' : '#34d399'
+                        }}>
+                          Pay: {tasks.payment || 'Queued'}
+                        </span>
+                        <span style={{
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          fontSize: '0.65rem',
+                          background: 'rgba(16,185,129,0.15)',
+                          color: '#34d399'
+                        }}>
+                          Inv: {tasks.inventory || 'Queued'}
+                        </span>
+                        <span style={{
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          fontSize: '0.65rem',
+                          background: 'rgba(16,185,129,0.15)',
+                          color: '#34d399'
+                        }}>
+                          Email: {tasks.notification || 'Queued'}
+                        </span>
                       </div>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
@@ -134,12 +151,14 @@ export default function OrdersTable({ orders, onRefresh }) {
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                       <button
-                        onClick={() => setSelectedOrder(ord)}
-                        className="btn-secondary"
-                        style={{ padding: '4px 8px', fontSize: '0.7rem' }}
-                        title="View Full JSON Record"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedOrder(ord);
+                        }}
+                        className="btn-ghost"
+                        style={{ padding: '3px 8px', fontSize: '0.7rem' }}
                       >
-                        <Eye size={12} /> View
+                        <Eye size={12} /> JSON
                       </button>
                     </td>
                   </tr>
@@ -150,7 +169,7 @@ export default function OrdersTable({ orders, onRefresh }) {
         </table>
       </div>
 
-      {/* JSON Inspector Modal */}
+      {/* Order Detail Modal */}
       {selectedOrder && (
         <div style={{
           position: 'fixed',
@@ -163,27 +182,23 @@ export default function OrdersTable({ orders, onRefresh }) {
           zIndex: 9999,
           padding: '20px'
         }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '600px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }} className="mono">
-                Order Record: {selectedOrder.id}
+          <div className="card-clean" style={{ width: '100%', maxWidth: '580px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: '24px', background: '#0d1322' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }} className="mono">
+                Supabase Record: {selectedOrder.id}
               </h3>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="btn-secondary"
-                style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-              >
+              <button onClick={() => setSelectedOrder(null)} className="btn-ghost" style={{ padding: '4px 10px' }}>
                 ✕ Close
               </button>
             </div>
             <pre style={{
               flex: 1,
               overflowY: 'auto',
-              background: '#090d16',
+              background: '#070b14',
               border: '1px solid var(--border-color)',
               borderRadius: '8px',
-              padding: '16px',
-              fontSize: '0.75rem',
+              padding: '14px',
+              fontSize: '0.74rem',
               color: '#38bdf8',
               lineHeight: 1.5
             }} className="mono">

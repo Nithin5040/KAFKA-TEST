@@ -1,139 +1,130 @@
 import React from 'react';
-import { Layers, Database, Radio, BookOpen, Settings, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Layers, Database, BookOpen, Settings, CheckCircle2, ArrowRight } from 'lucide-react';
 
-export default function Header({ status, onOpenDbModal, onOpenGuideModal }) {
+export default function Header({ status, onOpenDbModal, onOpenGuideModal, activeTab, setActiveTab }) {
   const isDbConnected = status.database?.isConnected;
   const dbProvider = status.database?.provider || 'In-Memory';
-  const isKafkaReal = status.kafka?.mode === 'REAL_BROKER';
-  const isRabbitReal = status.rabbitmq?.mode === 'REAL_BROKER';
 
   return (
-    <header className="glass-panel" style={{ padding: '16px 24px', marginBottom: '24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+    <header style={{ marginBottom: '20px' }}>
+      {/* Top Navbar */}
+      <div className="card-clean" style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
         
-        {/* Brand & Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        {/* Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
-            width: '46px',
-            height: '46px',
-            borderRadius: '12px',
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
             background: 'linear-gradient(135deg, #8b5cf6, #f97316)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(139, 92, 246, 0.4)'
+            boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
           }}>
-            <Layers size={24} color="#ffffff" />
+            <Layers size={20} color="#ffffff" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', background: 'linear-gradient(90deg, #ffffff, #cbd5e1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                Kafka & RabbitMQ Integration Studio
+              <h1 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#ffffff' }}>
+                Kafka + RabbitMQ Pipeline
               </h1>
-              <span className="badge badge-kafka" style={{ fontSize: '0.65rem' }}>Distributed Architecture</span>
+              <span className="badge badge-kafka">Live System</span>
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Dual-Broker Architecture • Event Streaming + Message Queues + Cloud Database
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              From Event Stream to Worker Queues to Cloud PostgreSQL
             </p>
           </div>
         </div>
 
-        {/* Live Service Status Badges */}
+        {/* Live Service Indicators & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           
-          {/* Kafka Status */}
-          <div style={{
-            background: 'rgba(168, 85, 247, 0.1)',
-            border: '1px solid rgba(168, 85, 247, 0.25)',
-            borderRadius: '10px',
-            padding: '6px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#a855f7',
-              boxShadow: '0 0 8px #a855f7'
-            }} />
-            <div style={{ fontSize: '0.75rem' }}>
-              <span style={{ color: '#a855f7', fontWeight: 700 }}>KAFKA: </span>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                {isKafkaReal ? 'Live Docker (9092)' : 'Interactive Simulator'}
-              </span>
-            </div>
+          {/* Kafka Badge */}
+          <div className="badge badge-kafka" style={{ padding: '5px 10px', fontSize: '0.75rem' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#c084fc', display: 'inline-block' }} />
+            Kafka: <strong>orders.stream</strong>
           </div>
 
-          {/* RabbitMQ Status */}
-          <div style={{
-            background: 'rgba(249, 115, 22, 0.1)',
-            border: '1px solid rgba(249, 115, 22, 0.25)',
-            borderRadius: '10px',
-            padding: '6px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#f97316',
-              boxShadow: '0 0 8px #f97316'
-            }} />
-            <div style={{ fontSize: '0.75rem' }}>
-              <span style={{ color: '#f97316', fontWeight: 700 }}>RABBITMQ: </span>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                {isRabbitReal ? 'Live Docker (5672)' : 'Interactive Simulator'}
-              </span>
-            </div>
+          {/* RabbitMQ Badge */}
+          <div className="badge badge-rabbit" style={{ padding: '5px 10px', fontSize: '0.75rem' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fb923c', display: 'inline-block' }} />
+            RabbitMQ: <strong>3 Workers</strong>
           </div>
 
-          {/* Cloud DB Status */}
+          {/* Supabase Cloud Badge */}
           <div 
             onClick={onOpenDbModal}
-            style={{
-              background: isDbConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-              border: `1px solid ${isDbConnected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-              borderRadius: '10px',
-              padding: '6px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer'
-            }}
-            title="Click to configure Cloud Database (Supabase / Neon)"
+            className="badge badge-supabase" 
+            style={{ padding: '5px 10px', fontSize: '0.75rem', cursor: 'pointer' }}
+            title="Click to view database settings"
           >
-            <Database size={14} color={isDbConnected ? '#10b981' : '#f59e0b'} />
-            <div style={{ fontSize: '0.75rem' }}>
-              <span style={{ color: isDbConnected ? '#10b981' : '#f59e0b', fontWeight: 700 }}>CLOUD DB: </span>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                {isDbConnected ? dbProvider : 'In-Memory (Click to Connect)'}
-              </span>
-            </div>
+            <Database size={12} />
+            Supabase: <strong>{isDbConnected ? 'Connected (Cloud)' : 'In-Memory'}</strong>
           </div>
 
-          {/* Action Buttons */}
-          <button 
-            id="btn-cloud-db-modal"
-            className="btn-secondary" 
-            onClick={onOpenDbModal}
-            style={{ padding: '7px 12px', fontSize: '0.78rem' }}
-          >
-            <Settings size={14} /> Connect Cloud DB
-          </button>
-
-          <button 
-            id="btn-learning-guide"
-            className="btn-primary" 
+          <button
             onClick={onOpenGuideModal}
-            style={{ padding: '7px 14px', fontSize: '0.78rem' }}
+            className="btn-ghost"
+            style={{ padding: '6px 12px', fontSize: '0.78rem' }}
           >
-            <BookOpen size={14} /> Architecture Guide
+            <BookOpen size={14} /> How it Works
           </button>
         </div>
+      </div>
+
+      {/* Clean Navigation Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+        <button
+          onClick={() => setActiveTab('pipeline')}
+          style={{
+            background: activeTab === 'pipeline' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+            color: activeTab === 'pipeline' ? '#c084fc' : 'var(--text-secondary)',
+            border: `1px solid ${activeTab === 'pipeline' ? 'rgba(139, 92, 246, 0.4)' : 'var(--border-color)'}`,
+            borderRadius: '10px',
+            padding: '8px 16px',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          🚀 1. Interactive Pipeline & Dispatcher
+        </button>
+
+        <button
+          onClick={() => setActiveTab('orders')}
+          style={{
+            background: activeTab === 'orders' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+            color: activeTab === 'orders' ? '#34d399' : 'var(--text-secondary)',
+            border: `1px solid ${activeTab === 'orders' ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-color)'}`,
+            borderRadius: '10px',
+            padding: '8px 16px',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          🗄️ 2. Supabase Cloud Ledger (Orders)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('logs')}
+          style={{
+            background: activeTab === 'logs' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+            color: activeTab === 'logs' ? '#60a5fa' : 'var(--text-secondary)',
+            border: `1px solid ${activeTab === 'logs' ? 'rgba(59, 130, 246, 0.4)' : 'var(--border-color)'}`,
+            borderRadius: '10px',
+            padding: '8px 16px',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          📡 3. Live Logs Stream
+        </button>
       </div>
     </header>
   );

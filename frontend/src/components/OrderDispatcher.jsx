@@ -1,37 +1,40 @@
 import React, { useState } from 'react';
-import { Send, Zap, AlertTriangle, ShieldCheck, ShoppingCart } from 'lucide-react';
+import { Send, Zap, AlertTriangle, ShieldCheck, ShoppingCart, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function OrderDispatcher({ onOrderCreated, onBatchDispatched }) {
-  const [customerName, setCustomerName] = useState('Nithin Developer');
-  const [item, setItem] = useState('Apple MacBook Pro M3');
+  const [customerName, setCustomerName] = useState('Nithin');
+  const [item, setItem] = useState('Apple MacBook Pro');
   const [amount, setAmount] = useState('2499.00');
-  const [quantity, setQuantity] = useState('1');
   const [forceFail, setForceFail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const dispatchOrder = async (payload) => {
     setLoading(true);
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName,
-          item,
-          amount: parseFloat(amount),
-          quantity: parseInt(quantity),
-          forceFail
-        })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (onOrderCreated) onOrderCreated(data);
     } catch (err) {
-      console.error('Error creating order:', err);
+      console.error('Error dispatching order:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCustomSubmit = (e) => {
+    e.preventDefault();
+    dispatchOrder({
+      customerName,
+      item,
+      amount: parseFloat(amount),
+      quantity: 1,
+      forceFail
+    });
   };
 
   const handleBatch = async (count) => {
@@ -45,82 +48,117 @@ export default function OrderDispatcher({ onOrderCreated, onBatchDispatched }) {
       const data = await res.json();
       if (onBatchDispatched) onBatchDispatched(data);
     } catch (err) {
-      console.error('Error dispatching batch:', err);
+      console.error('Error batch streaming:', err);
     } finally {
       setBatchLoading(false);
     }
   };
 
-  const applyPreset = (presetName, presetAmount, shouldFail = false) => {
-    setItem(presetName);
-    setAmount(presetAmount.toString());
-    setForceFail(shouldFail);
-  };
-
   return (
-    <div className="glass-panel" style={{ padding: '24px', height: '100%' }}>
+    <div className="card-clean" style={{ padding: '20px' }}>
+      
+      {/* Title */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <ShoppingCart size={18} color="#a855f7" /> Order Dispatcher & Load Simulator
-        </h3>
+        <div>
+          <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShoppingCart size={18} color="#c084fc" /> Dispatch Order Event
+          </h3>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+            Choose a quick scenario or submit a custom order
+          </p>
+        </div>
         <span className="badge badge-kafka">Kafka Ingestion</span>
       </div>
 
-      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '18px' }}>
-        Emit real-time order events to Kafka topic <code className="mono" style={{ color: '#c084fc' }}>orders.stream</code>. The bridge then fans out tasks to RabbitMQ.
-      </p>
+      {/* 3 Quick 1-Click Scenario Buttons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+        
+        {/* Scenario 1: Standard Success */}
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => dispatchOrder({ customerName: 'Nithin (Normal)', item: 'MacBook Pro M3', amount: 2499.00, forceFail: false })}
+          className="btn-preset"
+          style={{ borderLeft: '4px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
+              🟢 Standard Order ($2,499)
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+              Tests Happy Path: Kafka Event → RabbitMQ ACKs → Supabase Completed
+            </div>
+          </div>
+          <span className="badge badge-success" style={{ fontSize: '0.68rem' }}>1-Click Run</span>
+        </button>
 
-      {/* Quick Presets */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap' }}>
+        {/* Scenario 2: DLQ Failure */}
         <button
           type="button"
-          onClick={() => applyPreset('Apple MacBook Pro M3', 2499.00, false)}
-          className="btn-secondary"
-          style={{ fontSize: '0.75rem', padding: '6px 10px' }}
+          disabled={loading}
+          onClick={() => dispatchOrder({ customerName: 'FAIL_TEST', item: 'Diamond Watch', amount: 9999.00, forceFail: true })}
+          className="btn-preset"
+          style={{ borderLeft: '4px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          MacBook ($2499)
+          <div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
+              🔴 Payment Declined ($9,999)
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+              Tests Failure Path: RabbitMQ NACK → Routes into Dead Letter Queue (DLQ)
+            </div>
+          </div>
+          <span className="badge badge-failed" style={{ fontSize: '0.68rem' }}>1-Click Run</span>
         </button>
+
+        {/* Scenario 3: Batch Kafka Stream */}
         <button
           type="button"
-          onClick={() => applyPreset('Sony WH-1000XM5', 399.00, false)}
-          className="btn-secondary"
-          style={{ fontSize: '0.75rem', padding: '6px 10px' }}
+          disabled={batchLoading}
+          onClick={() => handleBatch(5)}
+          className="btn-preset"
+          style={{ borderLeft: '4px solid #8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          Headphones ($399)
+          <div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
+              ⚡ High-Throughput Burst (5 Orders)
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+              Streams 5 concurrent events into multiple Kafka partitions in parallel
+            </div>
+          </div>
+          <span className="badge badge-kafka" style={{ fontSize: '0.68rem' }}>
+            {batchLoading ? 'Streaming...' : '1-Click Burst'}
+          </span>
         </button>
-        <button
-          type="button"
-          onClick={() => applyPreset('Luxury Diamond Watch', 9999.00, true)}
-          className="btn-secondary"
-          style={{ fontSize: '0.75rem', padding: '6px 10px', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#f87171' }}
-        >
-          🚨 High-Value (Triggers DLQ)
-        </button>
+
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid var(--border-color)', margin: '16px 0 14px 0' }} />
+
+      {/* Custom Order Form */}
+      <form onSubmit={handleCustomSubmit}>
+        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '10px' }}>
+          Or Create Custom Order:
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Customer Name
-            </label>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Customer Name</label>
             <input
-              id="input-customer-name"
               type="text"
-              className="input-field"
+              className="clean-input"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               required
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Item / Product
-            </label>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Item Name</label>
             <input
-              id="input-item-name"
               type="text"
-              className="input-field"
+              className="clean-input"
               value={item}
               onChange={(e) => setItem(e.target.value)}
               required
@@ -128,117 +166,40 @@ export default function OrderDispatcher({ onOrderCreated, onBatchDispatched }) {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '10px', alignItems: 'flex-end', marginBottom: '14px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Amount ($ USD)
-            </label>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Amount ($)</label>
             <input
-              id="input-amount"
               type="number"
               step="0.01"
-              className="input-field"
+              className="clean-input"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
             />
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Quantity
-            </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', cursor: 'pointer', paddingBottom: '6px' }}>
             <input
-              id="input-quantity"
-              type="number"
-              min="1"
-              max="20"
-              className="input-field"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              required
+              type="checkbox"
+              checked={forceFail}
+              onChange={(e) => setForceFail(e.target.checked)}
+              style={{ cursor: 'pointer' }}
             />
-          </div>
+            <span style={{ color: forceFail ? '#f87171' : 'var(--text-secondary)' }}>Trigger DLQ Fail</span>
+          </label>
         </div>
 
-        {/* DLQ Failure Test Checkbox */}
-        <div style={{
-          background: forceFail ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-          border: `1px solid ${forceFail ? 'rgba(239, 68, 68, 0.3)' : 'var(--border-color)'}`,
-          borderRadius: '10px',
-          padding: '10px 14px',
-          marginBottom: '18px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          cursor: 'pointer'
-        }}
-        onClick={() => setForceFail(!forceFail)}
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-action"
+          style={{ width: '100%', justifyContent: 'center' }}
         >
-          <input
-            id="checkbox-force-fail"
-            type="checkbox"
-            checked={forceFail}
-            onChange={(e) => setForceFail(e.target.checked)}
-            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-          />
-          <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: forceFail ? '#f87171' : 'var(--text-primary)' }}>
-              Simulate Payment Failure & Dead Letter Queue (DLQ)
-            </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-              Sends NACK from Payment Worker and routes message into RabbitMQ <code className="mono">order.dlq</code>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button
-            id="btn-dispatch-order"
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-            style={{ flex: 1, justifyContent: 'center' }}
-          >
-            <Send size={15} /> {loading ? 'Streaming...' : 'Dispatch to Kafka'}
-          </button>
-        </div>
+          <Send size={15} /> {loading ? 'Emitting to Kafka...' : 'Dispatch Custom Order'}
+        </button>
       </form>
 
-      {/* High-Throughput Batch Simulator */}
-      <div style={{ marginTop: '20px', paddingTop: '18px', borderTop: '1px solid var(--border-color)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Zap size={14} color="#facc15" /> Kafka High-Throughput Batch Stream
-          </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Load Testing</span>
-        </div>
-        <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-          Publish concurrent orders across multiple Kafka partitions simultaneously:
-        </p>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            id="btn-batch-5"
-            type="button"
-            disabled={batchLoading}
-            onClick={() => handleBatch(5)}
-            className="btn-secondary"
-            style={{ flex: 1, fontSize: '0.78rem', justifyContent: 'center' }}
-          >
-            ⚡ Stream 5 Orders
-          </button>
-          <button
-            id="btn-batch-15"
-            type="button"
-            disabled={batchLoading}
-            onClick={() => handleBatch(15)}
-            className="btn-secondary"
-            style={{ flex: 1, fontSize: '0.78rem', justifyContent: 'center', borderColor: 'rgba(234, 179, 8, 0.4)', color: '#facc15' }}
-          >
-            🚀 Stream 15 Orders
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

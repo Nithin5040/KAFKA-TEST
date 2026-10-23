@@ -31,6 +31,20 @@ async function initKafka(onMessageCallback) {
 
   try {
     eventBus.log('KAFKA', `Connecting to Kafka broker at ${broker}...`);
+    
+    // Ensure topic exists via admin client
+    try {
+      const admin = kafka.admin();
+      await admin.connect();
+      await admin.createTopics({
+        topics: [{ topic: TOPIC_NAME, numPartitions: 3, replicationFactor: 1 }],
+        waitForLeaders: true
+      });
+      await admin.disconnect();
+    } catch (e) {
+      // topic might already exist, safe to ignore
+    }
+
     await producer.connect();
     await consumer.connect();
 
